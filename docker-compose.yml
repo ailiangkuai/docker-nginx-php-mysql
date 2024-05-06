@@ -5,11 +5,13 @@ services:
         volumes:
             - "./etc/nginx/default.conf:/etc/nginx/conf.d/default.conf"
             - "./etc/ssl:/etc/ssl"
-            - "./web:/var/www/html"
+            - "D:/wwwroot:/wwwroot"
             - "./etc/nginx/default.template.conf:/etc/nginx/conf.d/default.template"
+            - "./log/nginx/:/var/log/nginx/"
         ports:
             - "8000:80"
             - "3000:443"
+            - "8081:8081"
         environment:
             - NGINX_HOST=${NGINX_HOST}
         command: /bin/sh -c "envsubst '$$NGINX_HOST' < /etc/nginx/conf.d/default.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
@@ -17,31 +19,32 @@ services:
         depends_on:
             - php
             - mysqldb
+            - redis
     php:
         image: nanoninja/php-fpm:${PHP_VERSION}
+        container_name: php
         restart: always
         volumes:
             - "./etc/php/php.ini:/usr/local/etc/php/conf.d/php.ini"
-            - "./web:/var/www/html"
-    composer:
-        image: "composer"
-        volumes:
-            - "./web/app:/app"
-        command: install
-    myadmin:
-        image: phpmyadmin/phpmyadmin
-        container_name: phpmyadmin
+            # - "./etc/php/conf.d/docker-php-ext-xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini"
+            - "D:/wwwroot:/wwwroot"
+        working_dir: /wwwroot/hytj_www/bittrades.vip/jiaoyisuo08_backend
+    # composer:
+    #     image: "composer"
+    #     volumes:
+    #         - "D:/wwwroot:/wwwroot"
+    #     command: install
+    redis:
+        image: redis:${REDIS_VERSION}
+        container_name: redis
         ports:
-            - "8080:80"
-        environment:
-            - PMA_ARBITRARY=1
-            - PMA_HOST=${MYSQL_HOST}
-        restart: always
-        depends_on:
-            - mysqldb
+        - "26379:$REDIS_PORT"
+        volumes:
+        - ./data/redis-data:/data
+        command: redis-server --port $REDIS_PORT --requirepass $REDIS_PASS  --appendonly yes
     mysqldb:
         image: mysql:${MYSQL_VERSION}
-        container_name: ${MYSQL_HOST}
+        container_name: mysql
         restart: always
         env_file:
             - ".env"
@@ -51,6 +54,7 @@ services:
             - MYSQL_USER=${MYSQL_USER}
             - MYSQL_PASSWORD=${MYSQL_PASSWORD}
         ports:
-            - "8989:3306"
+            - "23306:23306"
         volumes:
             - "./data/db/mysql:/var/lib/mysql"
+            - "./etc/mysql/conf.d/my-custom.cnf:/etc/mysql/conf.d/my-custom.cnf:ro"       
